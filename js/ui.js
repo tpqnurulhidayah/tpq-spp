@@ -128,7 +128,7 @@ export function sheet(content, { title = '' } = {}) {
   if (content instanceof Raw) sb.innerHTML = content.s; else if (content) sb.appendChild(content);
   document.body.appendChild(ov);
   requestAnimationFrame(() => requestAnimationFrame(() => ov.classList.add('in')));
-  const close = () => { ov.classList.remove('in'); document.body.classList.remove('ps'); setTimeout(() => ov.remove(), 600); };
+  const close = () => { ov.style.pointerEvents = 'none'; ov.classList.remove('in'); document.body.classList.remove('ps'); setTimeout(() => ov.remove(), 600); };
   ov.addEventListener('click', (e) => { if (e.target === ov || e.target.closest('.sh-x')) close(); });
   return { el: sb, close, ov };
 }
@@ -139,7 +139,7 @@ export function konfirmasi(teks, { ya = 'Ya', merah = false } = {}) {
     ov.innerHTML = `<div class="dlg"><p style="font-weight:700;margin-bottom:18px">${esc(teks)}</p><div class="row"><button class="btn sp" data-x="0">Batal</button><button class="btn sp ${merah ? 'red' : 'pri'}" data-x="1">${esc(ya)}</button></div></div>`;
     document.body.appendChild(ov);
     requestAnimationFrame(() => requestAnimationFrame(() => ov.classList.add('in')));
-    const end = (v) => { ov.classList.remove('in'); setTimeout(() => ov.remove(), 500); res(v); };
+    const end = (v) => { ov.style.pointerEvents = 'none'; ov.classList.remove('in'); setTimeout(() => ov.remove(), 500); res(v); };
     ov.addEventListener('click', (e) => { const b = e.target.closest('[data-x]'); if (b) end(b.dataset.x === '1'); else if (e.target === ov) end(false); });
   });
 }

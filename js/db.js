@@ -79,6 +79,7 @@ export const db = {
   async listKuitansi(limit = 60) { return ok(await sb.from('kuitansi').select('*, santri(nama,no_wa,kelas(nama))').order('tanggal', { ascending: false }).limit(limit)); },
   async getKuitansi(id) { return ok(await sb.from('kuitansi').select('*, santri(nama,no_wa,nis,kelas(nama)), pembayaran(jumlah, tagihan(periode))').eq('id', id).single()); },
   async batalKuitansi(id, alasan) { ok(await sb.rpc('batal_kuitansi', { p_kuitansi_id: id, p_alasan: alasan || '' })); },
+  async hapusKuitansi(id) { ok(await sb.from('kuitansi').delete().eq('id', id).eq('dibatalkan', true)); },
   async bayarSemua() { return ok(await sb.from('kuitansi').select('tanggal,total').eq('dibatalkan', false)); },
   async kuitansiRange(dari, sampai) {
     return ok(await sb.from('kuitansi').select('*, santri(nama,kelas(nama))').gte('tanggal', dari).lt('tanggal', sampai).eq('dibatalkan', false).order('tanggal'));

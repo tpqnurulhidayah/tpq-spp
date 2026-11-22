@@ -203,7 +203,7 @@ export async function kuitansi(root, ctx) {
   };
   try { list = await db.listKuitansi(150); tampil(); } catch (e) { toast(e.message, 'err'); }
   $('#q', root).addEventListener('input', debounce((e) => { q = e.target.value.trim(); tampil(); }));
-  on(root, 'click', '[data-kw]', (e, b) => bukaKuitansi(ctx, Number(b.dataset.kw), async () => { list = await db.listKuitansi(150); tampil(); }));
+  on(root, 'click', '[data-kw]', (e, b) => bukaKuitansi(ctx, Number(b.dataset.kw), async () => { try { list = await db.listKuitansi(150); tampil(); } catch (e) { toast(e.message, 'err'); } }));
 }
 
 export async function bukaKuitansi(ctx, id, done) {
@@ -224,7 +224,12 @@ export async function bukaKuitansi(ctx, id, done) {
         ${k.dibatalkan ? html`<div class="stamp bad">DIBATALKAN</div>` : html`<div class="stamp">DITERIMA</div>`}</div></div>
     <div class="no-print" style="margin-top:14px"><button class="btn pri block" id="img">Simpan gambar</button>
       <div class="row" style="margin-top:10px"><button class="btn sp" id="cetak">Cetak / PDF</button><a class="btn sp" style="text-decoration:none" target="_blank" rel="noopener" href="${waLink(k.santri.no_wa, pesan)}">Kirim WA</a></div>
-      ${admin && !k.dibatalkan ? html`<button class="btn red block" id="batal" style="margin-top:10px">Batalkan kuitansi</button>` : ''}</div>`, { title: 'Kuitansi' });
+      ${admin && !k.dibatalkan ? html`<button class="btn red block" id="batal" style="margin-top:10px">Batalkan kuitansi</button>` : ''}
+      ${admin && k.dibatalkan ? html`<button class="btn red block" id="hapus" style="margin-top:10px">Hapus kuitansi ini</button><p class="muted" style="font-size:12.5px;margin:8px 2px 0">Kuitansi sudah dibatalkan, jadi tidak memengaruhi tagihan. Menghapus bersifat permanen.</p>` : ''}</div>`, { title: 'Kuitansi' });
+  $('#hapus', sh.el)?.addEventListener('click', async () => {
+    if (!(await konfirmasi(`Hapus permanen kuitansi ${k.nomor}? Tindakan ini tidak bisa dibatalkan.`, { ya: 'Hapus', merah: true }))) return;
+    try { await db.hapusKuitansi(k.id); toast('Kuitansi dihapus', 'ok'); sh.close(); done?.(); } catch (e) { toast(e.message, 'err'); }
+  });
   $('#cetak', sh.el).addEventListener('click', () => {
     document.body.classList.add('ps');
     window.addEventListener('afterprint', () => document.body.classList.remove('ps'), { once: true });
