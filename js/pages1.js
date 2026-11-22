@@ -146,7 +146,7 @@ export async function santri(root, ctx) {
     const kw = q.toLowerCase();
     const rows = all.filter((s) => (fs === 'semua' || s.status === fs) && (!fk || String(s.kelas_id) === fk) &&
       (!kw || [s.nama, s.nis, s.nama_wali].some((x) => String(x || '').toLowerCase().includes(kw))));
-    $('#cnt', root).textContent = rows.length + ' santri';
+    const cn = $('#cnt', root); if (cn) cn.textContent = rows.length + ' santri';
     mount($('#ls', root), rows.length ? html`${rows.map((s, i) => html`
       <button class="item rise" style="--i:${Math.min(i, 12) * .5}" data-id="${s.id}">
         <div class="av">${inisial(s.nama)}</div>
