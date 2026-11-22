@@ -99,7 +99,7 @@ export async function bayar(root, ctx) {
       mount(formEl, html`<div class="card rise"><div class="empty" style="padding:10px">${iconKosong}<div><b>${pilih.nama}</b> tidak punya tagihan yang belum lunas.<br>Buat tagihan bulan ini di menu <b>Tagihan</b> bila belum ada.</div></div></div>`);
       return;
     }
-    mount(formEl, html`<div class="card rise"><div class="row" style="margin-bottom:12px"><div class="av item" style="width:42px;height:42px;padding:0;box-shadow:none;cursor:default;justify-content:center;color:#fff;background:linear-gradient(145deg,var(--green-l),var(--green-d))">${inisial(pilih.nama)}</div><div class="tx"><b style="font-size:17px">${pilih.nama}</b><div class="muted" style="font-size:13px">${pilih.kelas?.nama || 'Tanpa kelas'}</div></div></div>
+    mount(formEl, html`<div class="card rise"><div class="row" style="margin-bottom:12px"><div class="av item" style="width:42px;height:42px;padding:0;box-shadow:none;cursor:default;justify-content:center;color:#fff;background:linear-gradient(145deg,var(--green-l),var(--green-d))">${inisial(pilih.nama)}</div><div class="tx"><b style="font-size:17px">${pilih.nama}</b><div class="muted" style="font-size:13px">${pilih.kelas?.nama || 'Tanpa kelas'}</div></div><button class="btn sm" id="ganti" style="margin-left:auto">✕ Batal</button></div>
       <h3>Tagihan yang dibayar</h3>
       <div class="list" id="bln">${buka.map((t) => html`<label class="item" style="cursor:pointer"><input type="checkbox" class="ck" value="${t.id}" data-sisa="${t.sisa}" checked style="width:22px;height:22px;accent-color:var(--green)"><div class="tx"><b>${namaBulan(t.periode)}</b><small>${t.terbayar > 0 ? 'sudah dibayar ' + rp(t.terbayar) : 'belum dibayar'}</small></div><div class="end"><b>${rp(t.sisa)}</b></div></label>`)}</div>
       <div class="hr"></div>
@@ -108,6 +108,7 @@ export async function bayar(root, ctx) {
       <label class="field"><span>Catatan (opsional)</span><input class="in" id="cat" placeholder="Misal: dibayar ibunya"></label>
       <button class="btn pri block" id="go">Catat pembayaran</button></div>`);
     stagger(formEl);
+    $('#ganti', root).addEventListener('click', () => { pilih = null; formEl.innerHTML = ''; $('#q', root).value = ''; cari(''); window.scrollTo({ top: 0, behavior: 'smooth' }); });
     const jml = $('#jml', root); fmtInput(jml);
     const total = () => $$('.ck', root).filter((c) => c.checked).reduce((a, c) => a + Number(c.dataset.sisa), 0);
     const reset = () => { const t = total(); jml.value = t ? t.toLocaleString('id-ID') : ''; };
@@ -212,21 +213,39 @@ export async function bukaKuitansi(ctx, id, done) {
   const bln = (k.pembayaran || []).slice().sort((a, b) => a.tagihan.periode.localeCompare(b.tagihan.periode));
   const pesan = `Assalamu'alaikum. Bukti pembayaran SPP ${P.nama_sekolah}\nNo: ${k.nomor}\nSantri: ${k.santri.nama}\nTanggal: ${tgl(k.tanggal)}\nUntuk: ${bln.map((b) => 'SPP ' + namaBulan(b.tagihan.periode)).join(', ')}\nTotal: ${rp(k.total)}\nJazakumullahu khairan.`;
   const sh = sheet(html`
-    <div class="kw"><div class="hd"><img src="assets/logo.png" alt=""><div><b>${P.nama_sekolah}</b><small>${P.alamat || ''}${P.no_wa ? ' · WA ' + P.no_wa : ''}</small></div></div>
+    <div class="kw"><div class="hd"><img src="assets/logo.png" alt=""><div><b>${P.nama_sekolah}</b><small>${[P.alamat, P.no_wa ? 'WA ' + P.no_wa : ''].filter(Boolean).join(' · ')}</small></div></div>
       <h4>KUITANSI PEMBAYARAN</h4>
-      ${k.dibatalkan ? html`<div class="stamp bad">DIBATALKAN</div>` : html`<div class="stamp">DITERIMA</div>`}
-      <table><tr><td>No. kuitansi</td><td><b>${k.nomor}</b></td></tr><tr><td>Tanggal</td><td>${tgl(k.tanggal)}, ${jam(k.tanggal)}</td></tr>
+      <table><tr><td>No. kuitansi</td><td><b>${k.nomor}</b></td></tr><tr><td>Tanggal</td><td>${tgl(k.tanggal)}, pukul ${jam(k.tanggal)}</td></tr>
         <tr><td>Diterima dari</td><td><b>${k.santri.nama}</b>${k.santri.kelas?.nama ? ' (' + k.santri.kelas.nama + ')' : ''}</td></tr>
-        <tr><td>Untuk</td><td>${bln.map((b) => html`<div>SPP ${namaBulan(b.tagihan.periode)} — ${rp(b.jumlah)}</div>`)}</td></tr>
+        <tr><td>Untuk</td><td>${bln.map((b) => html`<div class="kw-l"><span>SPP ${namaBulan(b.tagihan.periode)}</span><b>${rp(b.jumlah)}</b></div>`)}</td></tr>
         <tr><td>Metode</td><td>${k.metode[0].toUpperCase() + k.metode.slice(1)}</td></tr>${k.catatan ? html`<tr><td>Catatan</td><td>${k.catatan}</td></tr>` : ''}</table>
       <div class="tot"><span>Total</span><span>${rp(k.total)}</span></div><div class="tb">${terbilang(k.total)}</div>
-      <div class="ttd"><div>Penyetor<br><br><br>( ${k.santri.nama} )</div><div>Bendahara<br><br><br>( ${P.bendahara || '.......'} )</div></div></div>
-    <div class="no-print" style="margin-top:14px"><div class="row"><button class="btn sp" id="cetak">Cetak / PDF</button><a class="btn sp" style="text-decoration:none" target="_blank" rel="noopener" href="${waLink(k.santri.no_wa, pesan)}">Kirim WA</a></div>
+      <div class="ttd"><div>Penyetor<br><br><br><br><b>( ${k.santri.nama} )</b></div><div>Bendahara<br><br><br><br><b>( ${P.bendahara || '..............'} )</b></div>
+        ${k.dibatalkan ? html`<div class="stamp bad">DIBATALKAN</div>` : html`<div class="stamp">DITERIMA</div>`}</div></div>
+    <div class="no-print" style="margin-top:14px"><button class="btn pri block" id="img">Simpan gambar</button>
+      <div class="row" style="margin-top:10px"><button class="btn sp" id="cetak">Cetak / PDF</button><a class="btn sp" style="text-decoration:none" target="_blank" rel="noopener" href="${waLink(k.santri.no_wa, pesan)}">Kirim WA</a></div>
       ${admin && !k.dibatalkan ? html`<button class="btn red block" id="batal" style="margin-top:10px">Batalkan kuitansi</button>` : ''}</div>`, { title: 'Kuitansi' });
   $('#cetak', sh.el).addEventListener('click', () => {
     document.body.classList.add('ps');
     window.addEventListener('afterprint', () => document.body.classList.remove('ps'), { once: true });
     window.print();
+  });
+  // Gambar disiapkan sejak awal agar tombol "Simpan gambar" langsung bekerja di iPhone
+  const nama = `kuitansi-${k.nomor}.png`;
+  const siap = import('./kuitansi-gambar.js').then(async (m) => { const c = await m.gambarKuitansi(k, P); return { c, blob: await m.keBlob(c) }; });
+  $('#img', sh.el).addEventListener('click', async () => {
+    let g;
+    try { g = await siap; } catch (e) { toast('Gagal membuat gambar', 'err'); return; }
+    const file = new File([g.blob], nama, { type: 'image/png' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try { await navigator.share({ files: [file], title: 'Kuitansi ' + k.nomor }); return; }
+      catch (e) { if (e.name === 'AbortError') return; }
+    }
+    const url = URL.createObjectURL(g.blob);
+    const s2 = sheet(html`<p class="muted" style="margin:0 0 12px;font-weight:600">Tekan lama gambar, lalu pilih <b>Simpan ke Foto</b>.</p>
+      <img src="${url}" alt="Kuitansi ${k.nomor}" style="width:100%;border-radius:14px;box-shadow:var(--sh-out-s);display:block">
+      <a class="btn block" style="text-decoration:none;margin-top:12px" href="${url}" download="${nama}">Unduh gambar</a>`, { title: 'Gambar kuitansi' });
+    s2.ov.addEventListener('transitionend', () => { if (!s2.ov.isConnected) URL.revokeObjectURL(url); });
   });
   $('#batal', sh.el)?.addEventListener('click', async () => {
     if (!(await konfirmasi(`Batalkan kuitansi ${k.nomor}? Pembayaran akan dikembalikan menjadi belum dibayar.`, { ya: 'Batalkan', merah: true }))) return;

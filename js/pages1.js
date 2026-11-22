@@ -45,7 +45,7 @@ export async function beranda(root, ctx) {
       <div id="cv" style="min-height:190px"></div>
       <div class="chart-tip" id="tip">Ketuk batang untuk melihat nilainya</div>
     </div>
-    <div class="sec-t">Aktivitas terbaru</div>
+    <div class="row" style="align-items:center"><div class="sec-t sp">Aktivitas terbaru</div>${ctx.admin ? html`<button class="btn sm" id="clr" style="margin-top:8px">Bersihkan</button>` : ''}</div>
     <div class="feed" id="feed"><div class="empty">Memuat…</div></div>`);
   stagger(root);
 
@@ -98,6 +98,7 @@ export async function beranda(root, ctx) {
   async function loadAll() {
     try {
       const [r, akt, tg] = await Promise.all([db.ringkasan(periode), db.listAktivitas(14), db.listTagihan(periodeOf())]);
+      if (!$('#feed', root)) return;
       R = r; setStats(); drawChart();
       const belum = periode === periodeOf() ? tg.filter((x) => x.status === 'belum' && ['aktif', 'baru', 'pindahan'].includes(x.status_santri)).slice(0, 3) : [];
       const bub = [
@@ -118,6 +119,10 @@ export async function beranda(root, ctx) {
   on(root, 'click', '[data-p]', (e, b) => { periode = addMonths(periode, Number(b.dataset.p)); loadAll(); });
   on(root, 'click', '[data-t]', (e, b) => { tab = b.dataset.t; $$('#tabs .chip', root).forEach((c) => c.classList.toggle('on', c === b)); drawChart(); });
   on(root, 'click', '.bar', (e, b) => { $$('.bar', root).forEach((x) => x.classList.remove('sel')); b.classList.add('sel'); $('#tip', root).textContent = b.dataset.tip; });
+  $('#clr', root)?.addEventListener('click', async () => {
+    if (!(await konfirmasi('Bersihkan semua catatan aktivitas? Data santri dan pembayaran tidak ikut terhapus.', { ya: 'Bersihkan', merah: true }))) return;
+    try { await db.hapusAktivitas(); toast('Aktivitas dibersihkan', 'ok'); loadAll(); } catch (e) { toast(e.message, 'err'); }
+  });
   loadAll(); loadTahunan();
   const refresh = debounce(() => { loadAll(); loadTahunan(); }, 600);
   const unsub = db.subscribe(refresh);

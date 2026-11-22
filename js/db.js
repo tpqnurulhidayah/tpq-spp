@@ -86,6 +86,7 @@ export const db = {
 
   /* --- dashboard --- */
   async ringkasan(periode) { return ok(await sb.rpc('ringkasan_dashboard', { p_periode: periode })); },
+  async hapusAktivitas() { ok(await sb.from('aktivitas').delete().gt('id', 0)); },
   async listAktivitas(n = 20) { return ok(await sb.from('aktivitas').select('*').order('waktu', { ascending: false }).limit(n)); },
   subscribe(cb) {
     const ch = sb.channel('tpq-live');

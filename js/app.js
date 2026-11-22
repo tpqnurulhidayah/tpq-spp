@@ -6,7 +6,6 @@ import { tagihan, bayar, tunggakan, kuitansi, laporan, pengaturan } from './page
 
 const app = document.getElementById('app');
 const splash = document.getElementById('splash');
-const t0 = performance.now();
 const st = { pengaturan: { nama_sekolah: 'TPQ Nurul Hidayah Batung' }, kelas: [] };
 let me = null, cleanup = null, unAuth = null;
 
@@ -26,9 +25,68 @@ const navItems = () => admin()
   ? ['beranda', 'santri', 'bayar', 'tagihan', 'menu']
   : ['beranda', 'santri', 'laporan', 'tagihan', 'menu'];
 
+/* ---------- Musik & suara logo ----------
+   iPhone hanya mengizinkan suara setelah layar disentuh, jadi pembuka menunggu satu ketukan. */
+const Musik = (() => {
+  const simpan = (v) => { try { localStorage.setItem('spp_musik', v ? '1' : '0'); } catch { /* */ } };
+  let aktif = (() => { try { return localStorage.getItem('spp_musik') !== '0'; } catch { return true; } })();
+  const sting = new Audio(); sting.preload = 'auto';
+  const bg = new Audio('assets/musik.mp3'); bg.loop = true; bg.preload = 'none';
+  let bgMulai = false;
+  // Suara logo dimuat ke memori dulu supaya berbunyi tepat saat logo datang
+  fetch('assets/logo-suara.mp3').then((r) => r.blob()).then((b) => { if (!sting.src) sting.src = URL.createObjectURL(b); }).catch(() => { sting.src = 'assets/logo-suara.mp3'; });
+  const putarBg = () => { bgMulai = true; if (aktif) { bg.currentTime = 0; bg.play().catch(() => {}); } };
+  sting.addEventListener('timeupdate', () => { if (!bgMulai && sting.currentTime >= 2.85) putarBg(); });
+  sting.addEventListener('ended', () => { if (!bgMulai) putarBg(); });
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) bg.pause(); else if (aktif && bgMulai) bg.play().catch(() => {});
+  });
+  return {
+    get aktif() { return aktif; },
+    mulai() {
+      if (!aktif) return Promise.resolve();
+      bg.muted = true; // "membuka kunci" musik latar di dalam ketukan
+      bg.play().then(() => { if (!bgMulai) bg.pause(); bg.muted = false; }).catch(() => { bg.muted = false; });
+      if (!sting.src) sting.src = 'assets/logo-suara.mp3';
+      return sting.play().catch(() => {});
+    },
+    ganti() {
+      aktif = !aktif; simpan(aktif);
+      if (aktif) { bgMulai = true; bg.muted = false; bg.play().catch(() => {}); } else { bg.pause(); sting.pause(); }
+      $$('.tb-musik').forEach(perbaruiTombolMusik);
+      return aktif;
+    },
+  };
+})();
+const IC_SUARA = '<path d="M4 9v6h4l5 4V5L8 9z"/><path d="M16.5 8.5a5 5 0 010 7M19 6a8.5 8.5 0 010 12"/>';
+const IC_BISU = '<path d="M4 9v6h4l5 4V5L8 9z"/><path d="M17 9l5 6M22 9l-5 6"/>';
+function perbaruiTombolMusik(b) {
+  b.classList.toggle('off', !Musik.aktif);
+  b.setAttribute('aria-label', Musik.aktif ? 'Matikan musik' : 'Nyalakan musik');
+  b.innerHTML = `<svg viewBox="0 0 24 24">${Musik.aktif ? IC_SUARA : IC_BISU}</svg>`;
+}
+const tombolMusik = () => raw('<button class="tb-btn tb-musik" type="button"></button>');
+document.addEventListener('click', (e) => { if (e.target.closest('.tb-musik')) Musik.ganti(); });
+const pasangTombolMusik = () => $$('.tb-musik').forEach(perbaruiTombolMusik);
+
+/* ---------- Pembuka ---------- */
+let akhirPembuka;
+const pembukaSelesai = new Promise((r) => { akhirPembuka = r; });
+function jalankanPembuka() {
+  splash.classList.remove('wait'); splash.classList.add('go');
+  setTimeout(akhirPembuka, 2900);
+}
+if (Musik.aktif) {
+  splash.classList.add('wait');
+  splash.addEventListener('click', async () => {
+    if (splash.classList.contains('go')) return;
+    await Promise.race([Musik.mulai(), new Promise((r) => setTimeout(r, 700))]);
+    jalankanPembuka();
+  });
+} else jalankanPembuka();
+
 function tutupSplash() {
-  const sisa = Math.max(0, 1900 - (performance.now() - t0));
-  setTimeout(() => { splash.classList.add('done'); setTimeout(() => splash.remove(), 700); }, sisa);
+  pembukaSelesai.then(() => { splash.classList.add('done'); setTimeout(() => splash.remove(), 700); });
 }
 
 const parse = () => {
@@ -41,13 +99,14 @@ const go = (h) => { if (location.hash === h) route(); else location.hash = h; };
 function tampilLogin(pesan = '') {
   cleanup?.(); cleanup = null;
   const email = (() => { try { return localStorage.getItem('spp_email') || ''; } catch { return ''; } })();
-  mount(app, html`<form class="login" id="f" autocomplete="on">
+  mount(app, html`<form class="login" id="f" autocomplete="on">${tombolMusik()}
     <div class="logo-ring"><svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="46" pathLength="1"/></svg><img src="assets/logo.png" alt="Logo TPQ"></div>
     <h1>SPP TPQ Nurul Hidayah</h1><p class="sub">Masuk untuk mengelola SPP</p>
     ${pesan ? html`<div class="err-box" id="er">${pesan}</div>` : html`<div id="er"></div>`}
     <label class="field"><span>Email</span><input class="in" id="em" type="email" autocomplete="username" inputmode="email" value="${email}" required></label>
     <label class="field"><span>Password</span><input class="in" id="pw" type="password" autocomplete="current-password" required></label>
     <button class="btn pri block" type="submit" id="go">Masuk</button></form>`);
+  pasangTombolMusik();
   const f = $('#f', app);
   f.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -79,13 +138,15 @@ async function keluar() {
 /* ---------- Shell ---------- */
 function bangunShell() {
   const items = navItems();
-  mount(app, html`<div class="shell"><div class="topbar"><div class="lg"><img src="assets/logo.png" alt=""></div>
-      <div class="tt"><small id="sk"></small><b id="jd"></b></div><button class="avatar" id="av" aria-label="Akun">${inisial(me.nama)}</button></div>
+  mount(app, html`<div class="shell"><div class="topbar"><button class="tb-btn hide" id="kembali" type="button" aria-label="Kembali"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button><div class="lg" id="lgo"><img src="assets/logo.png" alt=""></div>
+      <div class="tt"><small id="sk"></small><b id="jd"></b></div>${tombolMusik()}<button class="avatar" id="av" aria-label="Akun">${inisial(me.nama)}</button></div>
     <main id="isi"></main></div>
     <nav class="nav"><div class="ind"></div>${items.map((k) => html`<button data-n="${k}"><svg viewBox="0 0 24 24">${raw(IC[k])}</svg><span>${k === 'menu' ? 'Menu' : k[0].toUpperCase() + k.slice(1)}</span></button>`)}</nav>`);
   refreshHeader();
   on(app, 'click', '[data-n]', (e, b) => { if (b.dataset.n === 'menu') menu(); else go('#/' + b.dataset.n); });
   $('#av', app).addEventListener('click', akun);
+  $('#kembali', app).addEventListener('click', () => { if (langkah > 1) history.back(); else go('#/beranda'); });
+  pasangTombolMusik();
 }
 
 function refreshHeader() {
@@ -106,7 +167,7 @@ function akun() {
 }
 
 /* ---------- Router ---------- */
-let rid = 0;
+let rid = 0, langkah = 0;
 async function route() {
   if (!me || !$('#isi', app)) return;
   const { nama, params } = parse();
@@ -119,6 +180,10 @@ async function route() {
   const ind = $('.ind', app); if (ind) ind.style.transform = `translateX(${pos * 100}%)`;
   $$('.nav button', app).forEach((b, i) => b.classList.toggle('on', i === pos));
   $('#jd', app).textContent = NAMA[nama];
+  langkah++;
+  const diNav = idx >= 0;
+  $('#kembali', app).classList.toggle('hide', diNav);
+  $('#lgo', app).classList.toggle('hide', !diNav);
   const root = $('#isi', app);
   root.innerHTML = '';
   window.scrollTo(0, 0);

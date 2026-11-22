@@ -73,6 +73,15 @@ export const waNomor = (s) => { let n = String(s || '').replace(/\D/g, ''); if (
 export const waLink = (no, teks) => `https://wa.me/${waNomor(no)}?text=${encodeURIComponent(teks)}`;
 
 /* ---------- Angka slot (gulungan angka) ---------- */
+// Kecilkan huruf angka bila tidak muat di kotaknya
+export function fit(el) {
+  el.style.fontSize = '';
+  const p = el.parentElement; if (!p) return;
+  const cs = getComputedStyle(p);
+  const avail = p.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+  let fs = parseFloat(getComputedStyle(el).fontSize), n = 0;
+  while (el.scrollWidth > avail + 0.5 && fs > 11 && n++ < 30) { fs -= 1; el.style.fontSize = fs + 'px'; }
+}
 export function slot(el, value, { prefix = '', dur = 1 } = {}) {
   const text = Math.round(Number(value) || 0).toLocaleString('id-ID');
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -89,6 +98,7 @@ export function slot(el, value, { prefix = '', dur = 1 } = {}) {
     el.innerHTML = h;
     el.getBoundingClientRect();
   }
+  fit(el);
   const cols = el.querySelectorAll('.col');
   let i = 0;
   for (const ch of text) {
@@ -113,13 +123,13 @@ export function toast(msg, tipe = '') {
 export function sheet(content, { title = '' } = {}) {
   const ov = document.createElement('div');
   ov.className = 'ov';
-  ov.innerHTML = `<div class="sheet"><div class="grab"></div>${title ? `<h2>${esc(title)}</h2>` : ''}<div class="sb"></div></div>`;
+  ov.innerHTML = `<div class="sheet"><div class="grab"></div><div class="sh-hd"><h2>${esc(title)}</h2><button class="sh-x" type="button" aria-label="Tutup"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div><div class="sb"></div></div>`;
   const sb = ov.querySelector('.sb');
   if (content instanceof Raw) sb.innerHTML = content.s; else if (content) sb.appendChild(content);
   document.body.appendChild(ov);
   requestAnimationFrame(() => requestAnimationFrame(() => ov.classList.add('in')));
   const close = () => { ov.classList.remove('in'); document.body.classList.remove('ps'); setTimeout(() => ov.remove(), 600); };
-  ov.addEventListener('click', (e) => { if (e.target === ov) close(); });
+  ov.addEventListener('click', (e) => { if (e.target === ov || e.target.closest('.sh-x')) close(); });
   return { el: sb, close, ov };
 }
 export function konfirmasi(teks, { ya = 'Ya', merah = false } = {}) {
@@ -157,7 +167,7 @@ export function barChart(data, { warna = 'var(--green)', fmt = rpShort, grad = '
   for (let i = 0; i <= 3; i++) {
     const y = T + ((H - T - B) * i) / 3;
     g += `<line class="gl" x1="${L}" x2="${W - R}" y1="${y}" y2="${y}"/>`;
-    g += `<text x="${L + 2}" y="${y - 3}" style="text-anchor:start">${fmt(max - (max * i) / 3)}</text>`;
+    if (i < 3) g += `<text x="${L + 2}" y="${y - 3}" style="text-anchor:start">${fmt(max - (max * i) / 3)}</text>`;
   }
   let bars = '';
   data.forEach((d, i) => {
