@@ -184,8 +184,10 @@ async function route() {
   const diNav = idx >= 0;
   $('#kembali', app).classList.toggle('hide', diNav);
   $('#lgo', app).classList.toggle('hide', !diNav);
-  const root = $('#isi', app);
-  root.innerHTML = '';
+  // Wadah baru tiap pindah halaman, supaya pendengar ketukan halaman lama tidak ikut aktif
+  const lama = $('#isi', app);
+  const root = lama.cloneNode(false);
+  lama.replaceWith(root);
   window.scrollTo(0, 0);
   const ctx = { db, admin: admin(), st, go, params, me, refreshHeader, reloadKelas: async () => { st.kelas = await db.listKelas(); } };
   try {
