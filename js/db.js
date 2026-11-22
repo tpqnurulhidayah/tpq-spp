@@ -65,6 +65,12 @@ export const db = {
 
   /* --- tagihan --- */
   async listTagihan(periode) { return ok(await sb.from('v_tagihan').select('*').eq('periode', periode).order('nama')); },
+  async riwayatSantri(santriId) {
+    const t = ok(await sb.from('v_tagihan').select('id,periode,harus_bayar,terbayar,sisa,status').eq('santri_id', santriId).order('periode'));
+    if (!t.length) return [];
+    const b = ok(await sb.from('pembayaran').select('jumlah,tagihan_id,kuitansi(nomor,tanggal,dibatalkan)').in('tagihan_id', t.map((x) => x.id)));
+    return t.map((x) => ({ ...x, bayar: b.filter((y) => y.tagihan_id === x.id && !y.kuitansi?.dibatalkan).map((y) => ({ jumlah: y.jumlah, tanggal: y.kuitansi.tanggal, nomor: y.kuitansi.nomor })) }));
+  },
   async tagihanSantri(santriId) { return ok(await sb.from('v_tagihan').select('id,periode,nominal').eq('santri_id', santriId).order('periode')); },
   async tambahTagihan(santriId, periode, nominal) { const r = ok(await sb.from('tagihan').insert({ santri_id: santriId, periode, nominal }).select('id').single()); return r.id; },
   async buatTagihan(periode) { return ok(await sb.rpc('buat_tagihan_bulan', { p_periode: periode })); },

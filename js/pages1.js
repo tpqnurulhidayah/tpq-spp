@@ -182,6 +182,7 @@ function formSantri(ctx, s, done) {
   const { db, admin } = ctx; const baru = !s; s = s || { status: 'aktif', tanggal_masuk: ymd(new Date()) };
   const dis = admin ? '' : raw('disabled');
   const sh = sheet(html`
+    ${baru ? '' : html`<button class="btn block" id="riw" style="margin-bottom:14px">Riwayat SPP</button>`}
     <label class="field"><span>Nama santri *</span><input class="in" id="f_nama" value="${s.nama || ''}" ${dis} autocomplete="off"></label>
     <div class="frow"><label class="field"><span>NIS</span><input class="in" id="f_nis" value="${s.nis || ''}" ${dis}></label>
       <label class="field"><span>Jenis kelamin</span><select class="in" id="f_jk" ${dis}><option value="">—</option><option value="L" ${s.jenis_kelamin === 'L' ? raw('selected') : ''}>Laki-laki</option><option value="P" ${s.jenis_kelamin === 'P' ? raw('selected') : ''}>Perempuan</option></select></label></div>
@@ -197,6 +198,7 @@ function formSantri(ctx, s, done) {
       ${baru ? '' : html`<div class="row" style="margin-top:12px"><button class="btn sp" id="bayarx">Bayar SPP</button><button class="btn red sp" id="hapus">Hapus</button></div>`}` : ''}`,
   { title: baru ? 'Tambah santri' : 'Data santri' });
   const g = (id) => $('#' + id, sh.el);
+  g('riw')?.addEventListener('click', () => riwayatSpp(ctx, s));
   if (!admin) return;
   g('simpan').addEventListener('click', (e) => tombolKerja(e.currentTarget, async () => {
     const nama = g('f_nama').value.trim();
@@ -233,4 +235,32 @@ function formBanyak(ctx, done) {
     await db.insertSantriBanyak(names.map((nama) => ({ nama, kelas_id, status, tanggal_masuk })));
     toast(names.length + ' santri ditambahkan', 'ok'); sh.close(); done();
   }));
+}
+
+/* Riwayat SPP satu santri: per tahun, mana yang lunas, kapan dibayar */
+async function riwayatSpp(ctx, s) {
+  const { db } = ctx;
+  let data;
+  try { data = await db.riwayatSantri(s.id); } catch (e) { toast(e.message, 'err'); return; }
+  const tahun = [...new Set(data.map((d) => d.periode.slice(0, 4)))];
+  const thIni = String(new Date().getFullYear());
+  let th = tahun.includes(thIni) ? thIni : tahun[tahun.length - 1] || thIni;
+  const sh = sheet(html`<div class="row" style="margin-bottom:12px"><div class="tx" style="flex:1;min-width:0"><b class="nm">${s.nama}</b><div class="muted" style="font-size:13px">${s.kelas?.nama || 'Tanpa kelas'}</div></div></div>
+    <div class="chips" id="rth"></div><div class="grid g3" id="rsum" style="margin-bottom:12px"></div><div class="list" id="rls"></div>`, { title: 'Riwayat SPP' });
+  const gambar = () => {
+    const d = data.filter((x) => x.periode.startsWith(th));
+    const lunas = d.filter((x) => x.status === 'lunas').length, terbayar = d.reduce((a, x) => a + x.terbayar, 0), sisa = d.reduce((a, x) => a + x.sisa, 0);
+    mount($('#rth', sh.el), html`${(tahun.length ? tahun : [th]).map((y) => html`<button class="chip ${y === th ? 'on' : ''}" data-y="${y}">${y}</button>`)}`);
+    mount($('#rsum', sh.el), html`<div class="tile"><small>Lunas</small><b style="font-size:16px;color:var(--green)">${lunas} bulan</b></div><div class="tile"><small>Terbayar</small><b style="font-size:14px">${rp(terbayar)}</b></div><div class="tile"><small>Sisa</small><b style="font-size:14px;color:${sisa > 0 ? 'var(--red)' : 'inherit'}">${rp(sisa)}</b></div>`);
+    const peta = new Map(d.map((x) => [Number(x.periode.slice(5, 7)), x]));
+    mount($('#rls', sh.el), html`${BULAN.map((nm, i) => {
+      const x = peta.get(i + 1);
+      if (!x) return html`<div class="item" style="cursor:default;opacity:.55"><div class="tx"><b>${nm}</b><small>belum ada tagihan</small></div><div class="end"><span class="badge gray">—</span></div></div>`;
+      const [c, t] = { lunas: ['ok', 'Lunas'], sebagian: ['warn', 'Sebagian'], belum: ['bad', 'Belum bayar'] }[x.status] || ['gray', x.status];
+      const ket = x.bayar.length ? 'dibayar ' + x.bayar.map((y) => tgl(y.tanggal)).join(', ') : 'belum ada pembayaran';
+      return html`<div class="item" style="cursor:default"><div class="tx"><b>${nm}</b><small>${ket}</small></div><div class="end"><span class="badge ${c}">${t}</span><small class="muted">${x.status === 'lunas' ? rp(x.harus_bayar) : 'sisa ' + rp(x.sisa)}</small></div></div>`;
+    })}`);
+  };
+  on(sh.el, 'click', '[data-y]', (e, b) => { th = b.dataset.y; gambar(); });
+  gambar();
 }
