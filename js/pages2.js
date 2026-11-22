@@ -94,14 +94,19 @@ export async function bayar(root, ctx) {
     pilih = santri.find((s) => String(s.id) === String(id));
     if (!pilih) return;
     $('#q', root).value = pilih.nama; hasilEl.innerHTML = '';
-    try { buka = await db.listTagihanBuka(pilih.id); } catch (e) { toast(e.message, 'err'); return; }
-    if (!buka.length) {
-      mount(formEl, html`<div class="card rise"><div class="empty" style="padding:10px">${iconKosong}<div><b>${pilih.nama}</b> tidak punya tagihan yang belum lunas.<br>Buat tagihan bulan ini di menu <b>Tagihan</b> bila belum ada.</div></div></div>`);
-      return;
-    }
-    mount(formEl, html`<div class="card rise"><div class="row" style="margin-bottom:12px"><div class="av item" style="width:42px;height:42px;padding:0;box-shadow:none;cursor:default;justify-content:center;color:#fff;background:linear-gradient(145deg,var(--green-l),var(--green-d))">${inisial(pilih.nama)}</div><div class="tx"><b style="font-size:17px">${pilih.nama}</b><div class="muted" style="font-size:13px">${pilih.kelas?.nama || 'Tanpa kelas'}</div></div><button class="btn sm" id="ganti" style="margin-left:auto">✕ Batal</button></div>
-      <h3>Tagihan yang dibayar</h3>
-      <div class="list" id="bln">${buka.map((t) => html`<label class="item" style="cursor:pointer"><input type="checkbox" class="ck" value="${t.id}" data-sisa="${t.sisa}" checked style="width:22px;height:22px;accent-color:var(--green)"><div class="tx"><b>${namaBulan(t.periode)}</b><small>${t.terbayar > 0 ? 'sudah dibayar ' + rp(t.terbayar) : 'belum dibayar'}</small></div><div class="end"><b>${rp(t.sisa)}</b></div></label>`)}</div>
+    let semua;
+    try { [buka, semua] = await Promise.all([db.listTagihanBuka(pilih.id), db.tagihanSantri(pilih.id)]); } catch (e) { toast(e.message, 'err'); return; }
+    // Bulan berikutnya yang belum punya tagihan (dibuat otomatis hanya saat pembayaran dicatat)
+    const sudah = new Set(semua.map((t) => t.periode));
+    const awal = semua.length ? semua[semua.length - 1].periode : addMonths(periodeOf(), -1);
+    const nominalDasar = semua.length ? semua[semua.length - 1].nominal
+      : (pilih.nominal_spp ?? ctx.st.kelas.find((k) => k.id === pilih.kelas_id)?.nominal_spp ?? ctx.st.pengaturan.spp_default ?? 0);
+    let tambah = 0;
+    const barisBln = (t) => html`<label class="item" style="cursor:pointer"><input type="checkbox" class="ck" value="${t.virtual ? 'v:' + t.periode : t.id}" data-sisa="${t.sisa}" ${t.cek === false ? '' : raw('checked')} style="width:22px;height:22px;accent-color:var(--green)"><div class="tx"><b>${namaBulan(t.periode)}</b><small>${t.virtual ? 'bulan berikutnya' : t.terbayar > 0 ? 'sudah dibayar ' + rp(t.terbayar) : 'belum dibayar'}</small></div><div class="end"><b>${rp(t.sisa)}</b></div></label>`;
+    mount(formEl, html`<div class="card rise"><div class="row" style="margin-bottom:12px"><div class="av item" style="width:42px;height:42px;padding:0;box-shadow:none;cursor:default;justify-content:center;color:#fff;background:linear-gradient(145deg,var(--green-l),var(--green-d))">${inisial(pilih.nama)}</div><div class="tx" style="flex:1;min-width:0"><b class="nm">${pilih.nama}</b><div class="muted" style="font-size:13px">${pilih.kelas?.nama || 'Tanpa kelas'}</div></div><button class="btn sm" id="ganti">✕ Batal</button></div>
+      <h3>Bulan yang dibayar</h3>
+      <div class="list" id="bln">${buka.map((t) => barisBln(t))}</div>
+      <button class="btn block" id="lagi" style="margin-top:10px">▾ Tambah bulan berikutnya</button>
       <div class="hr"></div>
       <label class="field"><span>Jumlah dibayar (Rp)</span><input class="in" id="jml" inputmode="numeric" style="font-size:20px;font-weight:800"></label>
       <div class="chips" id="mt"><button class="chip on" data-m="tunai">Tunai</button><button class="chip" data-m="transfer">Transfer</button><button class="chip" data-m="lainnya">Lainnya</button></div>
@@ -114,13 +119,23 @@ export async function bayar(root, ctx) {
     const reset = () => { const t = total(); jml.value = t ? t.toLocaleString('id-ID') : ''; };
     reset();
     on(formEl, 'change', '.ck', reset);
+    $('#lagi', root).addEventListener('click', () => {
+      if (tambah >= 12) { toast('Maksimal 12 bulan ke depan', 'err'); return; }
+      const per = addMonths(awal, ++tambah);
+      if (sudah.has(per)) { return; }
+      $('#bln', root).insertAdjacentHTML('beforeend', barisBln({ virtual: true, periode: per, sisa: nominalDasar, terbayar: 0 }).s);
+      reset();
+      $('#bln', root).lastElementChild.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    });
     on(formEl, 'click', '[data-m]', (e, b) => { metode = b.dataset.m; $$('#mt .chip', root).forEach((c) => c.classList.toggle('on', c === b)); });
     $('#go', root).addEventListener('click', (e) => tombolKerja(e.currentTarget, async () => {
-      const ids = $$('.ck', root).filter((c) => c.checked).map((c) => Number(c.value));
+      const dipilih = $$('.ck', root).filter((c) => c.checked).map((c) => c.value);
       const j = digits(jml.value);
-      if (!ids.length) throw new Error('Pilih minimal satu bulan.');
+      if (!dipilih.length) throw new Error('Pilih minimal satu bulan.');
       if (j <= 0) throw new Error('Isi jumlah pembayaran.');
       if (j > total()) throw new Error(`Jumlah melebihi sisa tagihan terpilih (${rp(total())}).`);
+      const ids = [];
+      for (const v of dipilih) ids.push(v.startsWith('v:') ? await db.tambahTagihan(pilih.id, v.slice(2), nominalDasar) : Number(v));
       const res = await db.bayar({ santriId: pilih.id, jumlah: j, metode, catatan: $('#cat', root).value.trim(), tagihanIds: ids });
       const sh = sheet(html`<div style="text-align:center">${tickSvg()}<h2 style="margin:0">Pembayaran tercatat</h2>
         <p class="muted" style="margin:6px 0 16px">${pilih.nama} · ${rp(j)}<br>Kuitansi ${res.nomor}</p>

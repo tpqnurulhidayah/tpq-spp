@@ -65,6 +65,8 @@ export const db = {
 
   /* --- tagihan --- */
   async listTagihan(periode) { return ok(await sb.from('v_tagihan').select('*').eq('periode', periode).order('nama')); },
+  async tagihanSantri(santriId) { return ok(await sb.from('v_tagihan').select('id,periode,nominal').eq('santri_id', santriId).order('periode')); },
+  async tambahTagihan(santriId, periode, nominal) { const r = ok(await sb.from('tagihan').insert({ santri_id: santriId, periode, nominal }).select('id').single()); return r.id; },
   async buatTagihan(periode) { return ok(await sb.rpc('buat_tagihan_bulan', { p_periode: periode })); },
   async saveTagihan(id, patch) { ok(await sb.from('tagihan').update(bersih(patch)).eq('id', id)); },
   async delTagihan(id) { ok(await sb.from('tagihan').delete().eq('id', id)); },
