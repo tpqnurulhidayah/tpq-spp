@@ -1,0 +1,12 @@
+{
+  "name": "SPP TPQ Nurul Hidayah Batung",
+  "short_name": "SPP TPQ",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#E4EBE8",
+  "theme_color": "#169B4B",
+  "icons": [
+    { "src": "assets/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "assets/logo.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
