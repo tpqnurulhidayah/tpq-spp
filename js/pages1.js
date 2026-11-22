@@ -143,6 +143,7 @@ export async function santri(root, ctx) {
   stagger(root);
   const fkEl = $('#fk', root);
   const tampil = () => {
+    if (!$('#ls', root)) return;
     const kw = q.toLowerCase();
     const rows = all.filter((s) => (fs === 'semua' || s.status === fs) && (!fk || String(s.kelas_id) === fk) &&
       (!kw || [s.nama, s.nis, s.nama_wali].some((x) => String(x || '').toLowerCase().includes(kw))));
