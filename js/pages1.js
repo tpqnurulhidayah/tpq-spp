@@ -31,6 +31,7 @@ export async function beranda(root, ctx) {
       <div class="tile"><small>Total tagihan bulan ini</small><b class="" style="font-size:18px" data-k="tagihan_bulan_ini">0</b></div>
       <div class="tile"><small>Pembayaran hari ini</small><b style="font-size:18px" data-k="bayar_hari_ini">0</b></div>
     </div>
+    <button class="tile rise" id="kasKartu" style="margin-bottom:12px;width:100%;text-align:left;border:0;cursor:pointer;display:block"><small>Saldo kas saat ini</small><b style="font-size:24px;color:var(--green-d)" id="saldoKas">Rp0</b><small style="margin-top:4px">Ketuk untuk membuka kas ›</small></button>
     <div class="tile rise" style="margin-bottom:12px"><small>Total tunggakan</small><b style="font-size:24px;color:var(--red)" data-k="total_tunggakan">0</b></div>
     <div class="grid g3 rise">
       <div class="tile"><small>Sudah bayar</small><b style="color:var(--green)" data-k="sudah_bayar">0</b></div>
@@ -100,6 +101,7 @@ export async function beranda(root, ctx) {
       const [r, akt, tg] = await Promise.all([db.ringkasan(periode), db.listAktivitas(14), db.listTagihan(periodeOf())]);
       if (!$('#feed', root)) return;
       R = r; setStats(); drawChart();
+      db.ringkasanKas().then((k) => { const e = $('#saldoKas', root); if (e) slot(e, k.saldo, { prefix: 'Rp' }); }).catch(() => {});
       const belum = periode === periodeOf() ? tg.filter((x) => x.status === 'belum' && ['aktif', 'baru', 'pindahan'].includes(x.status_santri)).slice(0, 3) : [];
       const bub = [
         ...belum.map((x) => ({ k: 'n', t: `${x.nama} belum membayar SPP ${namaBulan(x.periode)}`, w: 'Tunggakan' })),
@@ -119,6 +121,7 @@ export async function beranda(root, ctx) {
   on(root, 'click', '[data-p]', (e, b) => { periode = addMonths(periode, Number(b.dataset.p)); loadAll(); });
   on(root, 'click', '[data-t]', (e, b) => { tab = b.dataset.t; $$('#tabs .chip', root).forEach((c) => c.classList.toggle('on', c === b)); drawChart(); });
   on(root, 'click', '.bar', (e, b) => { $$('.bar', root).forEach((x) => x.classList.remove('sel')); b.classList.add('sel'); $('#tip', root).textContent = b.dataset.tip; });
+  $('#kasKartu', root).addEventListener('click', () => ctx.go('#/kas'));
   $('#clr', root)?.addEventListener('click', async () => {
     if (!(await konfirmasi('Bersihkan semua catatan aktivitas? Data santri dan pembayaran tidak ikut terhapus.', { ya: 'Bersihkan', merah: true }))) return;
     try { await db.hapusAktivitas(); toast('Aktivitas dibersihkan', 'ok'); loadAll(); } catch (e) { toast(e.message, 'err'); }

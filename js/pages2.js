@@ -289,12 +289,13 @@ export async function laporan(root, ctx) {
       const [y2, m2] = sampai.split('-').map(Number);
       const awal = new Date(Number(dari.slice(0, 4)), Number(dari.slice(5)) - 1, 1).toISOString();
       const akhir = new Date(y2, m2, 1).toISOString();
-      const [kw, tg] = await Promise.all([db.kuitansiRange(awal, akhir), db.tagihanRange(dari + '-01', sampai + '-01')]);
-      data = { kw, tg }; gambar();
+      const [kw, tg, ks, rk] = await Promise.all([db.kuitansiRange(awal, akhir), db.tagihanRange(dari + '-01', sampai + '-01'), db.listKas(dari + '-01', ymd(new Date(y2, m2, 1))), db.ringkasanKas()]);
+      data = { kw, tg, ks, rk }; gambar();
     } catch (e) { toast(e.message, 'err'); }
   }
   function gambar() {
-    const { kw, tg } = data;
+    const { kw, tg, ks, rk } = data;
+    const kMasuk = ks.filter((x) => x.jenis === 'masuk').reduce((a, x) => a + x.jumlah, 0), kKeluar = ks.filter((x) => x.jenis === 'keluar').reduce((a, x) => a + x.jumlah, 0);
     const tTag = tg.reduce((a, r) => a + r.harus_bayar, 0), tSisa = tg.reduce((a, r) => a + r.sisa, 0), tKas = kw.reduce((a, r) => a + r.total, 0);
     const perBulan = new Map(), perKelas = new Map();
     tg.forEach((r) => { const b = r.periode.slice(0, 7); const x = perBulan.get(b) || { tag: 0, sisa: 0, kas: 0 }; x.tag += r.harus_bayar; x.sisa += r.sisa; perBulan.set(b, x);
@@ -306,6 +307,9 @@ export async function laporan(root, ctx) {
       <div class="card rise"><div style="font-weight:800;font-size:16px">Laporan keuangan SPP</div><div class="muted" style="margin-bottom:14px">${ctx.st.pengaturan.nama_sekolah} · ${judul}</div>
         <div class="grid g2"><div class="tile"><small>Total tagihan</small><b class="sm" style="font-size:17px">${rp(tTag)}</b></div><div class="tile hl"><small>Uang diterima</small><b style="font-size:17px">${rp(tKas)}</b></div>
         <div class="tile"><small>Sisa belum dibayar</small><b style="font-size:17px;color:var(--red)">${rp(tSisa)}</b></div><div class="tile"><small>Jumlah transaksi</small><b style="font-size:17px">${num(kw.length)}</b></div></div></div>
+      <div class="card rise"><h3>Kas</h3><div class="grid g2"><div class="tile"><small>Uang masuk lain</small><b style="font-size:15px;color:var(--green)">${rp(kMasuk)}</b></div><div class="tile"><small>Pengeluaran</small><b style="font-size:15px;color:var(--red)">${rp(kKeluar)}</b></div>
+        <div class="tile"><small>Selisih periode</small><b style="font-size:15px">${rp(tKas + kMasuk - kKeluar)}</b></div><div class="tile hl"><small>Saldo kas saat ini</small><b style="font-size:15px">${rp(rk.saldo)}</b></div></div>
+        ${ks.length ? html`<table class="tbl" style="margin-top:12px"><thead><tr><th>Tgl</th><th>Keterangan</th><th class="r">Jumlah</th></tr></thead><tbody>${ks.map((x) => html`<tr><td>${ymd(new Date(x.tanggal)).slice(8)}/${x.tanggal.slice(5, 7)}</td><td>${x.kategori || '-'}${x.keterangan ? html`<div class="muted" style="font-size:11px">${x.keterangan}</div>` : ''}</td><td class="r" style="color:${x.jenis === 'masuk' ? 'var(--green)' : 'var(--red)'}">${x.jenis === 'masuk' ? '+' : '−'}${num(x.jumlah)}</td></tr>`)}</tbody></table>` : ''}</div>
       <div class="card rise"><h3>Per bulan</h3><table class="tbl"><thead><tr><th>Bulan</th><th class="r">Tagihan</th><th class="r">Diterima</th><th class="r">Sisa</th></tr></thead><tbody>
         ${bulan.map(([b, x]) => html`<tr><td>${namaBulan(b + '-01', true)}</td><td class="r">${num(x.tag)}</td><td class="r">${num(x.kas)}</td><td class="r">${num(x.sisa)}</td></tr>`)}</tbody>
         <tfoot><tr><td>Total</td><td class="r">${num(tTag)}</td><td class="r">${num(tKas)}</td><td class="r">${num(tSisa)}</td></tr></tfoot></table></div>
@@ -319,7 +323,8 @@ export async function laporan(root, ctx) {
     $('#csv', root).addEventListener('click', () => {
       const L = [['Laporan SPP', ctx.st.pengaturan.nama_sekolah], ['Periode', judul], [], ['Tanggal', 'No. kuitansi', 'Nama santri', 'Kelas', 'Metode', 'Jumlah']];
       kw.forEach((r) => L.push([ymd(new Date(r.tanggal)), r.nomor, r.santri?.nama || '', r.santri?.kelas?.nama || '', r.metode, r.total]));
-      L.push([], ['Total diterima', '', '', '', '', tKas], ['Total tagihan', '', '', '', '', tTag], ['Sisa belum dibayar', '', '', '', '', tSisa]);
+      ks.forEach((x) => L.push([x.tanggal, x.jenis === 'masuk' ? 'Uang masuk' : 'Pengeluaran', x.kategori, x.keterangan || '', '', x.jenis === 'masuk' ? x.jumlah : -x.jumlah]));
+      L.push([], ['Saldo kas saat ini', '', '', '', '', rk.saldo], ['Total diterima', '', '', '', '', tKas], ['Total tagihan', '', '', '', '', tTag], ['Sisa belum dibayar', '', '', '', '', tSisa]);
       const csv = '﻿' + L.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(';')).join('\r\n');
       const a = document.createElement('a');
       a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));

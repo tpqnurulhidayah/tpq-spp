@@ -193,7 +193,7 @@ select.in{background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50
 .tick circle{fill:var(--mint-bg);stroke:var(--green);stroke-width:3;transform-origin:center;animation:pop .6s var(--spring2) both;filter:drop-shadow(0 0 10px rgba(61,187,109,.7))}
 .tick path{fill:none;stroke:var(--green-d);stroke-width:6;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:1;stroke-dashoffset:1;animation:draw .5s var(--ease) .35s forwards}
 
-input[type=month]{min-width:0;width:100%}
+input[type=month]{min-width:0;width:100%;font-size:14px;padding-left:12px;padding-right:8px}
 .frow>*{min-width:0}
 
 /* ---------- Login ---------- */

@@ -3,6 +3,7 @@ import { db } from './db.js';
 import { html, raw, mount, $, $$, on, sheet, toast, tombolKerja, inisial, esc } from './ui.js';
 import { beranda, santri } from './pages1.js';
 import { tagihan, bayar, tunggakan, kuitansi, laporan, pengaturan } from './pages2.js';
+import { kas } from './kas.js';
 
 const app = document.getElementById('app');
 const splash = document.getElementById('splash');
@@ -17,8 +18,8 @@ const IC = {
   laporan: '<path d="M4 20V10M10 20V4M16 20v-8M22 20H2"/>',
   menu: '<path d="M4 7h16M4 12h16M4 17h16"/>',
 };
-const NAMA = { beranda: 'Beranda', santri: 'Data Santri', bayar: 'Catat Pembayaran', tagihan: 'Tagihan SPP', tunggakan: 'Tunggakan', kuitansi: 'Kuitansi', laporan: 'Laporan Keuangan', pengaturan: 'Pengaturan' };
-const HALAMAN = { beranda, santri, bayar, tagihan, tunggakan, kuitansi, laporan, pengaturan };
+const NAMA = { beranda: 'Beranda', santri: 'Data Santri', bayar: 'Catat Pembayaran', tagihan: 'Tagihan SPP', tunggakan: 'Tunggakan', kuitansi: 'Kuitansi', laporan: 'Laporan Keuangan', kas: 'Kas TPQ', pengaturan: 'Pengaturan' };
+const HALAMAN = { beranda, santri, bayar, tagihan, tunggakan, kuitansi, laporan, pengaturan, kas };
 
 const admin = () => me?.peran === 'admin';
 const navItems = () => admin()
@@ -154,7 +155,7 @@ function refreshHeader() {
 }
 
 function menu() {
-  const k = admin() ? ['tunggakan', 'kuitansi', 'laporan', 'pengaturan'] : ['tunggakan', 'kuitansi', 'pengaturan'];
+  const k = admin() ? ['kas', 'tunggakan', 'kuitansi', 'laporan', 'pengaturan'] : ['kas', 'tunggakan', 'kuitansi', 'pengaturan'];
   const sh = sheet(html`<div class="list">${k.map((x) => html`<button class="item" data-m="${x}"><div class="tx"><b>${NAMA[x]}</b></div><div class="end muted">›</div></button>`)}
     <button class="item" data-m="keluar"><div class="tx"><b style="color:var(--red)">Keluar</b></div></button></div>`, { title: 'Menu' });
   on(sh.el, 'click', '[data-m]', (e, b) => { sh.close(); if (b.dataset.m === 'keluar') keluar(); else go('#/' + b.dataset.m); });

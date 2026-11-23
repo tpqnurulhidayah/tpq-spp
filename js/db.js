@@ -95,6 +95,13 @@ export const db = {
 
   /* --- dashboard --- */
   async ringkasan(periode) { return ok(await sb.rpc('ringkasan_dashboard', { p_periode: periode })); },
+  async ringkasanKas() { return ok(await sb.rpc('ringkasan_kas')); },
+  async listKas(dari, sampai) { return ok(await sb.from('kas').select('*').gte('tanggal', dari).lt('tanggal', sampai).order('tanggal', { ascending: false }).order('id', { ascending: false })); },
+  async saveKas(k) {
+    const row = { jenis: k.jenis, jumlah: k.jumlah, tanggal: k.tanggal, kategori: k.kategori || '', keterangan: k.keterangan || '' };
+    if (k.id) ok(await sb.from('kas').update(row).eq('id', k.id)); else ok(await sb.from('kas').insert(row));
+  },
+  async delKas(id) { ok(await sb.from('kas').delete().eq('id', id)); },
   async hapusAktivitas() { ok(await sb.from('aktivitas').delete().gt('id', 0)); },
   async listAktivitas(n = 20) { return ok(await sb.from('aktivitas').select('*').order('waktu', { ascending: false }).limit(n)); },
   subscribe(cb) {
